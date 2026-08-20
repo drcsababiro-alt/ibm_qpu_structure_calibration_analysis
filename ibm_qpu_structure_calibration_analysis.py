@@ -49,8 +49,8 @@ Scientific guardrails
 * Central conditional analyses use within-device residualization on region
   size and first-order connectivity variables.
 * Exact degree-sequence matching provides a complementary strict control.
-* Primary local interpretation uses k=1 and k=2; k=3 and k=4 are retained
-  only as secondary sensitivity scales.
+* Primary local interpretation uses k=1 and k=2; k=3 is retained as a
+  secondary sensitivity scale. All six metric families are computed for k=1,2,3.
 * Overlapping sampled regions induce dependence; group-aware or block-aware
   resampling is used for central inferential tests.
 * Cross-device analyses are interpreted as transfer tests after device-specific
@@ -137,7 +137,7 @@ warnings.filterwarnings("ignore")
 # Frozen analysis configuration
 # =============================================================================
 
-ANALYSIS_VERSION = "ibm-qpu-structure-calibration-analysis-1.0"
+ANALYSIS_VERSION = "repository-script"
 MASTER_SEED = 20260817
 
 CALIBRATION_VALID_BACKENDS = [
@@ -151,10 +151,10 @@ CALIBRATION_VALID_BACKENDS = [
 PATCH_WIDTHS = [8, 12, 16, 24, 32]
 PATCHES_PER_DEVICE_WIDTH = 24
 
-# Primary local scales for interpretation.
+# Primary local scales for central interpretation.
 PRIMARY_K = [1, 2]
-# Secondary sensitivity only.
-SECONDARY_K = [3, 4]
+# k=3 is retained as a secondary sensitivity scale.
+SECONDARY_K = [3]
 ALL_K = PRIMARY_K + SECONDARY_K
 
 N_MATCHED_PERMUTATIONS = 5000
@@ -184,13 +184,25 @@ STRUCTURAL_CORE = [
 ]
 
 STRUCTURAL_K_PRIMARY = [
-    "KHEM_k1", "NED_k1", "EWR_k1", "growth_k1_mean", "growth_k1_std",
-    "KHEM_k2", "NED_k2", "EWR_k2", "growth_k2_mean", "growth_k2_std",
+    "KHEM_k1_mean", "KHEM_k1_std",
+    "EWR_k1_mean", "EWR_k1_std",
+    "NED_k1_mean", "NED_k1_std",
+    "SSE_k1", "NSSE_k1", "GCV_k1",
+    "growth_k1_mean", "growth_k1_std",
+
+    "KHEM_k2_mean", "KHEM_k2_std",
+    "EWR_k2_mean", "EWR_k2_std",
+    "NED_k2_mean", "NED_k2_std",
+    "SSE_k2", "NSSE_k2", "GCV_k2",
+    "growth_k2_mean", "growth_k2_std",
 ]
 
 STRUCTURAL_K_SECONDARY = [
-    "KHEM_k3", "NED_k3", "EWR_k3", "growth_k3_mean", "growth_k3_std",
-    "KHEM_k4", "NED_k4", "EWR_k4", "growth_k4_mean", "growth_k4_std",
+    "KHEM_k3_mean", "KHEM_k3_std",
+    "EWR_k3_mean", "EWR_k3_std",
+    "NED_k3_mean", "NED_k3_std",
+    "SSE_k3", "NSSE_k3", "GCV_k3",
+    "growth_k3_mean", "growth_k3_std",
 ]
 
 # Primary calibration QUALITY layer used in the central claim.
@@ -389,33 +401,206 @@ def backend_graph_and_properties(class_name):
 # Structural descriptors
 # =============================================================================
 
+def khop_nodes(G, v, k):
+    """Return nodes at distance 1..k from v, excluding v itself."""
+    lengths = nx.single_source_shortest_path_length(G, v, cutoff=k)
+    return [u for u, d in lengths.items() if 1 <= d <= k]
+
+
+def shannon_entropy_from_weights(weights):
+    """Shannon entropy in bits after normalizing positive finite weights."""
+    w = np.asarray(weights, dtype=float)
+    w = w[np.isfinite(w) & (w > 0)]
+    if len(w) == 0:
+        return 0.0
+    p = w / w.sum()
+    return float(-np.sum(p * np.log2(p)))
+
+
+def published_khem_node(G, v, k):
+    """
+    KHEM as defined in the SACI paper:
+      p_u = deg_G(u) / sum_{x in N_k(v)} deg_G(x)
+      KHEM_k(v) = -sum p_u log2(p_u)
+    where N_k(v) contains nodes reachable from v in at most k steps,
+    excluding v.
+    """
+    neigh = khop_nodes(G, v, k)
+    if not neigh:
+        return 0.0
+    return shannon_entropy_from_weights([G.degree(u) for u in neigh])
+
+
+def published_ewr_ned_node(G, v, k):
+    """
+    EWR and NED as defined in the Mathematics paper.
+
+    The entropy component uses degrees inside the induced neighborhood
+    subgraph G[N_k(v)]. Let H_local be that entropy and let
+      R_k(v) = |E(G[N_k(v)])| / C(|N_k(v)|, 2).
+    Then
+      EWR_k(v) = H_local * R_k(v)
+      NED_k(v) = H_local * R_k(v) / |N_k(v)|.
+    """
+    neigh = khop_nodes(G, v, k)
+    nk = len(neigh)
+    if nk == 0:
+        return 0.0, 0.0, 0.0, 0.0, 0
+
+    Hsub = G.subgraph(neigh)
+    local_entropy = shannon_entropy_from_weights(
+        [Hsub.degree(u) for u in neigh]
+    )
+
+    max_edges = nk * (nk - 1) / 2.0
+    density = (
+        float(Hsub.number_of_edges() / max_edges)
+        if max_edges > 0 else 0.0
+    )
+
+    ewr = float(local_entropy * density)
+    ned = float((local_entropy / nk) * density) if nk > 0 else 0.0
+    return ewr, ned, local_entropy, density, nk
+
+
 def khop_signatures(G, k):
-    sig = []
-    shell_totals = []
+    """
+    Radial shell signatures for SSE/NSSE/GCV.
+
+    s_k(v) = (n_1(v), ..., n_k(v)),
+    where n_j(v) is the number of vertices at exact distance j.
+    """
+    signatures = []
+    cumulative_growth = []
+
     for v in G.nodes():
         lengths = nx.single_source_shortest_path_length(G, v, cutoff=k)
-        shells = tuple(
+        shell = tuple(
             sum(1 for d in lengths.values() if d == j)
             for j in range(1, k + 1)
         )
-        sig.append(shells)
-        shell_totals.append(sum(shells))
-    return sig, np.asarray(shell_totals, dtype=float)
+        signatures.append(shell)
+        cumulative_growth.append(sum(shell))
+
+    return signatures, np.asarray(cumulative_growth, dtype=float)
+
+
+def six_metric_descriptors(G, return_node_rows=False):
+    """
+    Compute all six agreed metric families for k=1,2,3.
+
+    Published metrics:
+      KHEM, EWR, NED.
+
+    New descriptors:
+      SSE, NSSE, GCV.
+
+    KHEM/EWR/NED are node-level metrics and are summarized at graph/region
+    level by mean and population standard deviation. SSE/NSSE/GCV are
+    graph/region-level descriptors.
+    """
+    n = G.number_of_nodes()
+    out = {}
+    node_rows = []
+
+    for k in ALL_K:
+        khem_vals, ewr_vals, ned_vals = [], [], []
+
+        for v in G.nodes():
+            khem = published_khem_node(G, v, k)
+            ewr, ned, hlocal, density, nk = published_ewr_ned_node(G, v, k)
+
+            khem_vals.append(khem)
+            ewr_vals.append(ewr)
+            ned_vals.append(ned)
+
+            if return_node_rows:
+                node_rows.append({
+                    "node": int(v),
+                    "k": int(k),
+                    "KHEM": float(khem),
+                    "EWR": float(ewr),
+                    "NED": float(ned),
+                    "EWR_NED_local_entropy": float(hlocal),
+                    "neighborhood_density": float(density),
+                    "neighborhood_size": int(nk),
+                })
+
+        out[f"KHEM_k{k}_mean"] = finite_mean(khem_vals)
+        out[f"KHEM_k{k}_std"] = finite_std(khem_vals)
+        out[f"EWR_k{k}_mean"] = finite_mean(ewr_vals)
+        out[f"EWR_k{k}_std"] = finite_std(ewr_vals)
+        out[f"NED_k{k}_mean"] = finite_mean(ned_vals)
+        out[f"NED_k{k}_std"] = finite_std(ned_vals)
+
+        signatures, growth = khop_signatures(G, k)
+        sse = entropy_discrete(signatures)
+        nsse = (
+            float(sse / math.log2(n))
+            if n > 1 and math.log2(n) > 0 else 0.0
+        )
+        growth_mean = finite_mean(growth)
+        growth_std = finite_std(growth)
+        gcv = (
+            float(growth_std / growth_mean)
+            if np.isfinite(growth_mean) and growth_mean > 0 else 0.0
+        )
+
+        out[f"SSE_k{k}"] = float(sse)
+        out[f"NSSE_k{k}"] = float(nsse)
+        out[f"GCV_k{k}"] = float(gcv)
+        out[f"growth_k{k}_mean"] = float(growth_mean)
+        out[f"growth_k{k}_std"] = float(growth_std)
+
+    return (out, node_rows) if return_node_rows else out
+
+
+def metric_definition_self_tests():
+    """Fail fast if any metric definition drifts from the agreed formulas."""
+    # SACI illustrative example: star center with three leaf neighbors.
+    Gs = nx.Graph()
+    Gs.add_edges_from([("B", "A"), ("B", "C"), ("B", "D")])
+    assert np.isclose(
+        published_khem_node(Gs, "B", 1), math.log2(3), atol=1e-12
+    )
+
+    # Triangle at k=1: KHEM=1, local entropy=1, density=1, EWR=1, NED=1/2.
+    Gt = nx.complete_graph(3)
+    assert np.isclose(published_khem_node(Gt, 0, 1), 1.0, atol=1e-12)
+    ewr, ned, hloc, dens, nk = published_ewr_ned_node(Gt, 0, 1)
+    assert nk == 2
+    assert np.isclose(hloc, 1.0, atol=1e-12)
+    assert np.isclose(dens, 1.0, atol=1e-12)
+    assert np.isclose(ewr, 1.0, atol=1e-12)
+    assert np.isclose(ned, 0.5, atol=1e-12)
+
+    # Path-4: hand-checkable SSE/NSSE/GCV at k=1,2,3.
+    Gp = nx.path_graph(4)
+    m = six_metric_descriptors(Gp)
+    assert np.isclose(m["SSE_k1"], 1.0, atol=1e-12)
+    assert np.isclose(m["NSSE_k1"], 0.5, atol=1e-12)
+    assert np.isclose(m["GCV_k1"], 1.0 / 3.0, atol=1e-12)
+    assert np.isclose(m["SSE_k2"], 1.0, atol=1e-12)
+    assert np.isclose(m["GCV_k2"], 0.2, atol=1e-12)
+    assert np.isclose(m["SSE_k3"], 1.0, atol=1e-12)
+    assert np.isclose(m["GCV_k3"], 0.0, atol=1e-12)
+
 
 def structural_descriptors(G):
     n = G.number_of_nodes()
     m = G.number_of_edges()
     deg = np.asarray([d for _, d in G.degree()], dtype=float)
+    deg_mean = finite_mean(deg)
+    deg_std = finite_std(deg)
 
     out = {
         "n": n,
         "m": m,
         "density": nx.density(G) if n > 1 else 0.0,
-        "avg_degree": finite_mean(deg),
-        "degree_std": finite_std(deg),
-        "degree_cv": finite_std(deg) / finite_mean(deg)
-            if finite_mean(deg) not in (0, np.nan) and np.isfinite(finite_mean(deg))
-            else 0.0,
+        "avg_degree": deg_mean,
+        "degree_std": deg_std,
+        "degree_cv": deg_std / deg_mean
+            if np.isfinite(deg_mean) and deg_mean > 0 else 0.0,
         "min_degree": float(np.min(deg)) if len(deg) else 0.0,
         "max_degree": float(np.max(deg)) if len(deg) else 0.0,
         "avg_clustering": nx.average_clustering(G) if n > 1 else 0.0,
@@ -448,18 +633,8 @@ def structural_descriptors(G):
         out["laplacian_radius"] = 0.0
         out["adjacency_energy"] = 0.0
 
-    for k in ALL_K:
-        sig, totals = khop_signatures(G, k)
-        H = entropy_discrete(sig)
-        maxH = math.log2(max(2, n))
-        out[f"KHEM_k{k}"] = H
-        out[f"NED_k{k}"] = H / maxH if maxH > 0 else 0.0
-        mu = finite_mean(totals)
-        out[f"EWR_k{k}"] = finite_std(totals) / mu if mu > 0 else 0.0
-        out[f"growth_k{k}_mean"] = mu
-        out[f"growth_k{k}_std"] = finite_std(totals)
+    out.update(six_metric_descriptors(G))
 
-    # WL graph hash provides a graph-structure fingerprint under identical node labels ignored.
     try:
         out["wl_hash"] = nx.weisfeiler_lehman_graph_hash(G)
     except Exception:
@@ -817,7 +992,7 @@ def residualize_within_device(df, target_cols,
                               numeric_controls=("width", "m", "avg_degree",
                                                 "degree_std", "degree_cv")):
     """
-    Remove first-order connectivity effects separately within each device.
+    Residualize on predefined region-size and first-order connectivity summaries separately within each device.
 
     This is the central conditioning transform for the article:
         higher-order structure | device, width, connectivity/degree organization
@@ -901,7 +1076,7 @@ def _cca_from_arrays(XS_tr, XQ_tr, XS_te, XQ_te, n_components=3):
 
 def conditional_cca_analysis(df, s_cols, q_cols):
     """
-    CCA on WITHIN-DEVICE, CONNECTIVITY-RESIDUALIZED feature spaces.
+    CCA on WITHIN-DEVICE, RESIDUALIZED feature spaces.
 
     Device-specific conditioning prevents device-generation scale and first-order
     connectivity differences from dominating the central comparison.
@@ -991,7 +1166,7 @@ def conditional_lodo_prediction(df, Sres, Qres, source_cols, target_cols, direct
     This deliberately does NOT ask a model trained on four devices to reproduce
     the absolute calibration scale of a fifth device. It asks the scientifically
     relevant question: does one information layer predict local deviations in the
-    other layer after first-order connectivity effects have been removed?
+    other layer after residualization for the predefined region-size and first-order connectivity summaries?
     """
     rows = []
 
@@ -1278,6 +1453,7 @@ def residual_mutual_information(df, s_cols, q_cols,
             raw_mi = float(mutual_info_regression(
                 xj.reshape(-1, 1),
                 yj,
+                n_neighbors=3,
                 random_state=stable_seed(MASTER_SEED, "mi_raw", s, q)
             )[0])
 
@@ -1318,6 +1494,7 @@ def residual_mutual_information(df, s_cols, q_cols,
                 mi0 = mutual_info_regression(
                     x_perm.reshape(-1, 1),
                     y_perm,
+                    n_neighbors=3,
                     random_state=stable_seed(
                         MASTER_SEED, "mi_perm_estimator", s, q, rep
                     )
@@ -1409,6 +1586,8 @@ def pca_variance(df, cols, family):
 # =============================================================================
 
 def main():
+    metric_definition_self_tests()
+
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     root = Path(f"ibm_qpu_structure_calibration_results_{stamp}")
 
@@ -1492,6 +1671,32 @@ def main():
         dirs["tables"] / "edges.csv", index=False
     )
 
+    # Full-QPU six-metric exports (k=1,2,3).
+    qpu_metric_rows = []
+    qpu_node_metric_rows = []
+    for device, G in backend_graphs.items():
+        metric_values, node_values = six_metric_descriptors(
+            G, return_node_rows=True
+        )
+        row = {
+            "device": device,
+            "n_qubits": G.number_of_nodes(),
+            "n_couplings": G.number_of_edges(),
+        }
+        row.update(metric_values)
+        qpu_metric_rows.append(row)
+
+        for r in node_values:
+            qpu_node_metric_rows.append({"device": device, **r})
+
+    pd.DataFrame(qpu_metric_rows).to_csv(
+        dirs["tables"] / "qpu_six_metrics_k1_k2_k3.csv", index=False
+    )
+    pd.DataFrame(qpu_node_metric_rows).to_csv(
+        dirs["tables"] / "qpu_published_khem_ewr_ned_node_metrics_k1_k2_k3.csv",
+        index=False,
+    )
+
     # -------------------------------------------------------------------------
     # 2. Patch generation
     # -------------------------------------------------------------------------
@@ -1528,6 +1733,7 @@ def main():
 
     srows = []
     qrows = []
+    patch_node_metric_rows = []
 
     for _, meta in patch_meta.iterrows():
         pid = meta.patch_id
@@ -1540,6 +1746,15 @@ def main():
         }
         s.update(structural_descriptors(P))
         srows.append(s)
+
+        _, node_metric_rows = six_metric_descriptors(P, return_node_rows=True)
+        for r in node_metric_rows:
+            patch_node_metric_rows.append({
+                "patch_id": pid,
+                "device": meta.device,
+                "width": int(meta.width),
+                **r,
+            })
 
         q = {
             "patch_id": pid,
@@ -1555,6 +1770,19 @@ def main():
     sdf.to_csv(dirs["tables"] / "structural_descriptors.csv", index=False)
     qdf.to_csv(dirs["tables"] / "calibration_descriptors.csv", index=False)
 
+    # Compact six-metric patch table, in addition to the full structural table.
+    six_metric_cols = [
+        c for c in sdf.columns
+        if c.startswith(("KHEM_", "EWR_", "NED_", "SSE_", "NSSE_", "GCV_"))
+    ]
+    sdf[["patch_id", "device", "width"] + six_metric_cols].to_csv(
+        dirs["tables"] / "patch_six_metrics_k1_k2_k3.csv", index=False
+    )
+    pd.DataFrame(patch_node_metric_rows).to_csv(
+        dirs["tables"] / "published_khem_ewr_ned_node_metrics_k1_k2_k3.csv",
+        index=False,
+    )
+
     merged = sdf.merge(
         qdf.drop(columns=["device", "width"]),
         on="patch_id",
@@ -1564,6 +1792,24 @@ def main():
 
     merged.to_csv(
         dirs["tables"] / "merged_patch_dataset.csv", index=False
+    )
+
+    descriptor_dictionary = pd.DataFrame([
+        {"family": "KHEM", "status": "published", "level": "node -> region mean/std",
+         "definition": "SACI KHEM; probabilities proportional to original-graph degrees within N_k(v)"},
+        {"family": "EWR", "status": "published", "level": "node -> region mean/std",
+         "definition": "Mathematics EWR; local induced-neighborhood degree entropy multiplied by neighborhood density"},
+        {"family": "NED", "status": "published", "level": "node -> region mean/std",
+         "definition": "Mathematics NED; EWR additionally normalized by neighborhood size"},
+        {"family": "SSE", "status": "new", "level": "region",
+         "definition": "Shannon entropy of empirical radial shell-signature classes"},
+        {"family": "NSSE", "status": "new", "level": "region",
+         "definition": "SSE divided by log2(region size)"},
+        {"family": "GCV", "status": "new", "level": "region",
+         "definition": "population SD / mean of cumulative k-hop reach across region vertices"},
+    ])
+    descriptor_dictionary.to_csv(
+        dirs["tables"] / "descriptor_dictionary.csv", index=False
     )
 
     # Feature availability.
@@ -1717,9 +1963,12 @@ def main():
             "diameter",
             "global_efficiency",
             "algebraic_connectivity",
-            "KHEM_k2",
-            "NED_k2",
-            "EWR_k2",
+            "KHEM_k2_mean",
+            "EWR_k2_mean",
+            "NED_k2_mean",
+            "SSE_k2",
+            "NSSE_k2",
+            "GCV_k2",
         ]
         if c in merged
     ]
@@ -2060,6 +2309,9 @@ def main():
         "calibration_primary_used": q_core,
         "calibration_secondary_timing": q_secondary,
         "connectivity_controls": CONNECTIVITY_CONTROLS,
+        "metric_families": ["KHEM", "EWR", "NED", "SSE", "NSSE", "GCV"],
+        "all_k": ALL_K,
+        "mi_n_neighbors": 3,
     }
     (root / "CONFIG.json").write_text(json.dumps(config, indent=2))
 
@@ -2081,6 +2333,7 @@ def main():
 ====================================================
 
 Analysis version: {ANALYSIS_VERSION}
+Created UTC: {now_utc()}
 
 Scientific claim under test
 ---------------------------
@@ -2095,8 +2348,7 @@ Calibration-valid historical IBM fake-backend snapshots:
 The study uses reproducibly sampled connected local regions at widths:
 {PATCH_WIDTHS}
 
-Primary local k-hop interpretation: k={PRIMARY_K}
-Secondary sensitivity only: k={SECONDARY_K}
+Primary local k-hop interpretation: k={PRIMARY_K}\nSecondary sensitivity: k={SECONDARY_K}\nSix metric families: KHEM, EWR, NED, SSE, NSSE, GCV
 
 Central controls
 ----------------
