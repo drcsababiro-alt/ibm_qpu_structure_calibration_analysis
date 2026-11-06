@@ -3573,7 +3573,7 @@ def mi_full_robustness_archive_cli():
             result=dict(pair_index=pair_no,structural_feature=s,calibration_feature=q,k=k,
                         n=len(x),status=invalid_reason or 'ok',observed_mi=np.nan,
                         null_mean=np.nan,excess_mi=np.nan,p=1.0,B=args.permutations,
-                        baseline_q=getattr(rec,'permutation_q_fdr',np.nan))
+                        )
             if not invalid_reason and k<len(x):
                 def estimate(v):
                     return float(mutual_info_regression(x.reshape(-1,1),v,
@@ -3590,6 +3590,11 @@ def mi_full_robustness_archive_cli():
             os.replace(checkpoint+'.tmp',checkpoint)
             print('MI audited',pair_no+1,'/',len(baseline),flush=True)
     result=pd.DataFrame(rows)
+    # ``baseline_q`` was an obsolete pre-repair cohort statistic from
+    # the archived pair registry. It is not part of the corrected
+    # 600-region analysis and is excluded from all public outputs,
+    # including results reloaded from an existing checkpoint.
+    result=result.drop(columns=['baseline_q'], errors='ignore')
     # BH family size stays 310: excluded/invalid pairs receive conservative p=1.
     if limit==len(baseline):
         for k,g in result.groupby('k'):
@@ -3607,8 +3612,6 @@ def mi_full_robustness_archive_cli():
     print(summary.to_string(index=False))
     if limit==len(baseline):
         print('Conservative q values available (310 per k and all k combined).')
-    if 'permutation_q_fdr' in baseline:
-        print('OBSOLETE source-archive baseline FDR count (NOT comparable to repaired cohort):',int((baseline.permutation_q_fdr<.05).sum()))
     if limit<len(baseline):print('PARTIAL RUN; do not interpret BH as final 310-pair inference')
     else:print('FULL 310-PAIR RUN COMPLETE (conditional block-permutation sensitivity only)')
 
@@ -3698,4 +3701,3 @@ if __name__ == "__main__":
         overlap_mi_main()
     else:
         main()
-
