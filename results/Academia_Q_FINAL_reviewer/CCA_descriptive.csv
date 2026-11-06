@@ -1,0 +1,4 @@
+analysis,canonical_component,canonical_correlation,squared_canonical_correlation,n_active_s,n_active_q
+conditional_full_sample_diagnostic,1,0.36105501163615267,0.13036072142758234,22,10
+conditional_full_sample_diagnostic,2,0.312955426881772,0.09794109921475215,22,10
+conditional_full_sample_diagnostic,3,0.28504425371738684,0.081250226577302,22,10

@@ -1,0 +1,6 @@
+device,backend_class,n_qubits,n_edges,snapshot_date,two_qubit_native_directions_available
+FakeBrisbane,FakeBrisbane,127,144,unknown_in_export,False
+FakeFez,FakeFez,156,176,unknown_in_export,False
+FakeMarrakesh,FakeMarrakesh,156,176,unknown_in_export,False
+FakeSherbrooke,FakeSherbrooke,127,144,unknown_in_export,False
+FakeTorino,FakeTorino,133,150,unknown_in_export,False

@@ -1,0 +1,28 @@
+{
+  "analysis_revision": "reviewer_complete_v5",
+  "source_archive_sha256": "20a0b8ab5e2d4f1bcdbba2c8dfe5e4c5718d8c141cca6ba0be2d5dab4b7bb426",
+  "run_type": "COMPLETE_REVIEWER_DIAGNOSTICS",
+  "n_regions": 600,
+  "n_devices": 5,
+  "n_frozen_mi_pairs": 310,
+  "n_structural_features": 31,
+  "n_calibration_features": 10,
+  "n_device_mi_pairs": 310,
+  "degree_of_overlap_warning": "Shared physical qubits induce statistical dependence; neither block permutation nor disjoint selection proves independence.",
+  "directionality": "Archived edges are undirected means. Native gate names and orientation-specific errors cannot be recovered from these archive tables.",
+  "nonlinear_control_warning": "OOF residual model comparison descriptive, not proof of adjusted independence.",
+  "CCA_RV_kNN_p_values": "conditional device-by-width block permutation only; physical overlap remains",
+  "MI_disjoint_top6": "original-data-selected hypotheses, NOT independent confirmatory family",
+  "external_lodo": "Train-only preprocessing and raw held-out calibration targets; no held-out-target residualization.",
+  "versions": {
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "scipy": "1.15.3",
+    "scikit-learn": "1.7.2",
+    "networkx": "3.4.2",
+    "matplotlib": "3.10.9"
+  },
+  "n_corrected_matched_pairs": 2102,
+  "matched_permutations": 5000,
+  "strict_overlap_seeds": 20
+}

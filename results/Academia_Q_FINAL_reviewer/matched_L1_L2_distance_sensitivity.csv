@@ -1,0 +1,3 @@
+n_pairs,n_groups,n_groups_size_2,n_groups_size_ge_3,spearman_rho,naive_p,group_aware_permutation_p,group_aware_centered_permutation_p,permutation_scheme,overlap_exchangeability_caveat,n_permutations,perm_mean,perm_sd,distance_norm
+2102,94,23,71,0.02654793608204849,0.22373784116062775,0.6103896103896104,0.7652347652347652,within_group_region_label_matrix_conjugation,True,1000,0.03366874551008721,0.023792526209572593,l2
+2102,94,23,71,0.05499771700725804,0.011671598407976231,0.45354645354645357,0.9170829170829171,within_group_region_label_matrix_conjugation,True,1000,0.052700587381702906,0.022199625756117357,l1
