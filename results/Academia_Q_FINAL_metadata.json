@@ -1,0 +1,14 @@
+{
+  "data_fingerprint": "2752c0ca50b0855deace3d9c60a3d5aef5353292c1694b34ff17efc1e12e1085",
+  "permutations": 999,
+  "neighbors": [
+    3,
+    5,
+    7
+  ],
+  "seed": 20260817,
+  "near_constant_std": 1e-09,
+  "conditioning": "within-device OLS: width,m,avg_degree,degree_std,degree_cv",
+  "permutation": "within device x width; region overlap not eliminated",
+  "sklearn_mi": "mutual_info_regression, standardized x/y, fixed 1e-10 jitter, continuous target, version 3"
+}
