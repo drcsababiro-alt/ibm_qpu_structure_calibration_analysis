@@ -1,0 +1,23 @@
+descriptor,rho_induced_vs_full_env,median_absolute_change,mean_absolute_change,fraction_regions_changed_at_1e-9,induced_sd,full_env_sd,n_regions,interpretation
+KHEM_k1_mean,-0.21446463913398053,0.40933972586447354,0.41220304943387204,1.0,0.1018205196221814,0.05828865066112752,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+KHEM_k1_std,0.294116217932663,0.2807372352437973,0.26754049067977864,1.0,0.05810112625980955,0.06152177243626743,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+EWR_k1_mean,,0.0,0.0,0.0,0.0,0.0,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+EWR_k1_std,,0.0,0.0,0.0,0.0,0.0,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+NED_k1_mean,,0.0,0.0,0.0,0.0,0.0,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+NED_k1_std,,0.0,0.0,0.0,0.0,0.0,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+SSE_k1,0.39790904226156937,0.545565997075035,0.49217870673061254,0.9916666666666667,0.12587756064542677,0.16827315156751882,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+NSSE_k1,0.7236183162127757,0.13277493261150328,0.1267913244528651,0.9916666666666667,0.0730780968622752,0.05866040653510886,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+GCV_k1,0.2835714008268904,0.17148733473222927,0.16956406667771787,1.0,0.053879047360017834,0.02692692736175882,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+growth_k1_mean,-0.0626067432869674,0.41666666666666674,0.4319791666666667,1.0,0.10061969807173095,0.08344610425187514,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+growth_k1_std,0.3438237065632445,0.22842512587392838,0.227049097999254,0.9916666666666667,0.08334588269763087,0.060968943597579664,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+KHEM_k2_mean,-0.005352245554246567,0.5567824058984079,0.5600885292616591,1.0,0.1400971558295078,0.09871194050057645,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+KHEM_k2_std,-0.061676224738486364,0.3052227410230812,0.32117512089465095,1.0,0.06099411126941512,0.11419901865360728,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+EWR_k2_mean,-0.30439100377524747,0.06456296874098555,0.06598164679158056,1.0,0.01658777627925257,0.013941344772174643,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+EWR_k2_std,-0.006935566690791339,0.16601988927770533,0.16129056950309936,1.0,0.03876529651615079,0.029351153704000196,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+NED_k2_mean,-0.15872400131868775,0.09327621005952855,0.09404599533162007,1.0,0.02441533732805399,0.012329565548145764,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+NED_k2_std,-0.17778075981733218,0.1238953601420434,0.11705143667652325,1.0,0.019419630757460327,0.021117486449240077,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+SSE_k2,0.26658068098941023,0.9323318616433032,0.9376235226536956,0.9983333333333333,0.2771152640213546,0.4399895213016789,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+NSSE_k2,0.31992936221485707,0.218546354076522,0.23817436665231223,0.9983333333333333,0.09903686835129576,0.12619139748331926,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+GCV_k2,-0.2818744942474455,0.1966066496600924,0.2149537916923725,1.0,0.040303719117279944,0.0688644841379281,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+growth_k2_mean,0.10042657404233506,1.4375,1.4637326388888887,1.0,0.3598884147946347,0.3358342375566531,600,same sampled root vertices; full-env includes external vertices; no permutation inference
+growth_k2_std,-0.2180614206160691,0.6334123810503154,0.7331144709933702,0.99,0.15656544895652932,0.3587266200382063,600,same sampled root vertices; full-env includes external vertices; no permutation inference

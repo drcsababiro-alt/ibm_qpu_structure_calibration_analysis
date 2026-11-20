@@ -1,0 +1,2 @@
+observed_rho,bootstrap_mean,ci95_low,ci95_high,B,bootstrap_unit,warning
+0.026405731855643655,0.02689987196521507,-0.029014538194502164,0.08331803235552446,2000,exact_degree_group,"Descriptive cluster bootstrap does not account for overlap across matched groups, not a coverage guarantee."
