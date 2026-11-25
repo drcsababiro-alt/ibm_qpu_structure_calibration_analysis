@@ -8,6 +8,18 @@ The study assesses whether local structural properties of superconducting quantu
 
 > **Recommended for the revised manuscript:** use `academia_quantum_REVIEWER_COMPLETE.py` with `Academia_QPU_CORRECTED_600_UNIQUE.zip`. You do **not** need to run the original script first. The original analysis is retained for transparency but its earlier numerical results have been superseded.
 
+## Publication-ready tables and figures (additional reproducibility folder)
+
+**For readers wanting to regenerate the manuscript's Figure 1–3 and Table 1–6 display data, start with [`publication_reproduction/README.md`](publication_reproduction/README.md).** This independent, additive folder contains the three original PNG images, figure-data extraction, figure rendering, manuscript table summaries, and a consistency check. It reuses the frozen input and statistical CSV outputs already present in this repository; original analysis files remain unchanged.
+
+Run from the repository root:
+
+```bash
+python publication_reproduction/run_publication_exports.py
+```
+
+For the **underlying original statistical computations** (including the full 999-permutation MI screening), use the main `academia_quantum_REVIEWER_COMPLETE.py` workflow documented below, not the plotting/export scripts alone. The manuscript-published fixed commit remains `91c2cc65ecef7c0ba9692e29d7e08e0448e37a19`; the new documentation/figure folder exists in a later repository revision.
+
 ## Which script should I run?
 
 | Script | Purpose | Status |
